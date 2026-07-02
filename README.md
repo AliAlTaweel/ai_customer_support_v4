@@ -48,6 +48,36 @@ Luxe v4.0
     └── Error Handling
 ```
 
+## 🛠️ Developer Tools Setup
+
+### Knowledge Graph (Graphify)
+
+Get AI-powered codebase navigation:
+
+```bash
+# Build the knowledge graph (one-time setup)
+graphify . --backend ollama --model gemma4:26b
+
+# Query after code changes
+graphify update .
+
+# Ask questions about the codebase
+graphify query "How does tenant creation work?"
+graphify path "Frontend" "Database"
+graphify explain "Tenant"
+```
+
+View the interactive graph: `graphify-out/graph.html`
+
+### Context7 Skills
+
+Set up context7 for documentation lookup:
+
+```bash
+npx ctx7 setup --claude
+# Select "CLI + Skills" option
+```
+
 ## 🚀 Quick Start
 
 ### Option 1: Development Setup (5 minutes)
