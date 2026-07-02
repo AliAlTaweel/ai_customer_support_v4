@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from config import settings
-from db import init_db
+from db import init_db, close_mongo_connection
 from routers import tenants, auth, api_keys, integrations, cases
 from logger import logger
 import os
@@ -15,11 +15,12 @@ os.makedirs("logs", exist_ok=True)
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("🚀 Starting application...")
-    init_db()
+    await init_db()
     logger.info("✓ Database initialized")
-    logger.info(f"📊 Database: {settings.database_url}")
+    logger.info(f"📊 MongoDB: {settings.mongodb_db_name}")
     yield
     # Shutdown
+    await close_mongo_connection()
     logger.info("⛔ Server shutting down")
 
 # Create app

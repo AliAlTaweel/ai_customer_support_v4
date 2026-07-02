@@ -1,23 +1,23 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
 from schemas import IntegrationCreate, IntegrationResponse
 from models import Tenant, Integration
-from db import get_db
 from auth import get_clerk_user
+from logger import logger
 from datetime import datetime
+import uuid
 
 router = APIRouter(prefix="/api/v1/integrations", tags=["integrations"])
 
-@router.post("/{tenant_id}", response_model=IntegrationResponse)
+@router.post("/{tenant_id}", response_model=IntegrationResponse, status_code=status.HTTP_201_CREATED)
 async def create_integration(
     tenant_id: str,
     integration_data: IntegrationCreate,
-    auth_user: dict = Depends(get_clerk_user),
-    db: Session = Depends(get_db)
+    user_data: dict = Depends(get_clerk_user),
 ):
     """Connect a new integration for a tenant."""
     try:
-        tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+        tenant = await Tenant.get(tenant_id)
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
 
@@ -32,77 +32,75 @@ async def create_integration(
             woocommerce_secret=integration_data.wooCommerceSecret,
             stripe_api_key=integration_data.stripeApiKey,
         )
-        db.add(integration)
-        db.commit()
-        db.refresh(integration)
+        await integration.save()
+        logger.info(f"✓ Integration created: {integration.id} for tenant {tenant_id}")
         return integration
+    except HTTPException:
+        raise
     except Exception as e:
-        db.rollback()
+        logger.error(f"✗ Failed to create integration: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/{tenant_id}", response_model=list[IntegrationResponse])
 async def list_integrations(
     tenant_id: str,
-    auth_user: dict = Depends(get_clerk_user),
-    db: Session = Depends(get_db)
+    user_data: dict = Depends(get_clerk_user),
 ):
     """List all integrations for a tenant."""
-    integrations = db.query(Integration).filter(Integration.tenant_id == tenant_id).all()
+    integrations = await Integration.find(Integration.tenant_id == tenant_id).to_list()
     return integrations
 
 @router.get("/{tenant_id}/{integration_id}", response_model=IntegrationResponse)
 async def get_integration(
     tenant_id: str,
     integration_id: str,
-    auth_user: dict = Depends(get_clerk_user),
-    db: Session = Depends(get_db)
+    user_data: dict = Depends(get_clerk_user),
 ):
     """Get a specific integration."""
-    integration = db.query(Integration).filter(
-        Integration.id == integration_id,
-        Integration.tenant_id == tenant_id
-    ).first()
-    if not integration:
+    integration = await Integration.get(integration_id)
+    if not integration or integration.tenant_id != tenant_id:
         raise HTTPException(status_code=404, detail="Integration not found")
     return integration
 
-@router.delete("/{tenant_id}/{integration_id}")
+@router.delete("/{tenant_id}/{integration_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_integration(
     tenant_id: str,
     integration_id: str,
-    auth_user: dict = Depends(get_clerk_user),
-    db: Session = Depends(get_db)
+    user_data: dict = Depends(get_clerk_user),
 ):
-    """Disconnect an integration."""
-    integration = db.query(Integration).filter(
-        Integration.id == integration_id,
-        Integration.tenant_id == tenant_id
-    ).first()
-    if not integration:
-        raise HTTPException(status_code=404, detail="Integration not found")
+    """Delete an integration."""
+    try:
+        integration = await Integration.get(integration_id)
+        if not integration or integration.tenant_id != tenant_id:
+            raise HTTPException(status_code=404, detail="Integration not found")
 
-    db.delete(integration)
-    db.commit()
-    return {"status": "deleted"}
+        await integration.delete()
+        logger.info(f"✓ Integration deleted: {integration_id}")
+        return None
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"✗ Failed to delete integration: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/{tenant_id}/{integration_id}/sync")
+@router.post("/{tenant_id}/{integration_id}/sync", response_model=IntegrationResponse)
 async def sync_integration(
     tenant_id: str,
     integration_id: str,
-    auth_user: dict = Depends(get_clerk_user),
-    db: Session = Depends(get_db)
+    user_data: dict = Depends(get_clerk_user),
 ):
-    """Manually sync integration data."""
-    integration = db.query(Integration).filter(
-        Integration.id == integration_id,
-        Integration.tenant_id == tenant_id
-    ).first()
-    if not integration:
-        raise HTTPException(status_code=404, detail="Integration not found")
+    """Sync integration data."""
+    try:
+        integration = await Integration.get(integration_id)
+        if not integration or integration.tenant_id != tenant_id:
+            raise HTTPException(status_code=404, detail="Integration not found")
 
-    # Mark as synced
-    integration.last_synced_at = datetime.utcnow()
-    db.commit()
-    db.refresh(integration)
-
-    return {"status": "synced", "integration": integration}
+        integration.last_synced_at = datetime.utcnow()
+        await integration.save()
+        logger.info(f"✓ Integration synced: {integration_id}")
+        return integration
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"✗ Failed to sync integration: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))

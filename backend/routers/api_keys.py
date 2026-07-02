@@ -1,9 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy.orm import Session
 from schemas import ApiKeyResponse
 from models import Tenant
-from db import get_db
 from auth import get_clerk_user
+from logger import logger
 import uuid
 
 router = APIRouter(prefix="/api/v1/api-keys", tags=["api-keys"])
@@ -11,47 +10,40 @@ router = APIRouter(prefix="/api/v1/api-keys", tags=["api-keys"])
 @router.post("/{tenant_id}", response_model=ApiKeyResponse)
 async def generate_api_key(
     tenant_id: str,
-    auth_user: dict = Depends(get_clerk_user),
-    db: Session = Depends(get_db)
+    user_data: dict = Depends(get_clerk_user),
 ):
     """Generate a new API key for a tenant."""
     try:
-        tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+        tenant = await Tenant.get(tenant_id)
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
 
-        # Generate new API key
-        new_key = str(uuid.uuid4())
-        tenant.api_key = new_key
-        db.commit()
-        db.refresh(tenant)
+        api_key = str(uuid.uuid4())
+        tenant.api_key = api_key
+        await tenant.save()
 
-        return ApiKeyResponse(
-            key=new_key,
-            createdAt=tenant.created_at
-        )
+        logger.info(f"✓ API key generated for tenant {tenant_id}")
+        return ApiKeyResponse(key=api_key, createdAt=tenant.created_at)
+    except HTTPException:
+        raise
     except Exception as e:
-        db.rollback()
+        logger.error(f"✗ Failed to generate API key: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/{tenant_id}")
+@router.get("/{tenant_id}", response_model=ApiKeyResponse)
 async def get_api_key(
     tenant_id: str,
-    auth_user: dict = Depends(get_clerk_user),
-    db: Session = Depends(get_db)
+    user_data: dict = Depends(get_clerk_user),
 ):
-    """Get current API key (masked)."""
+    """Get tenant's API key."""
     try:
-        tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+        tenant = await Tenant.get(tenant_id)
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
 
-        # Return masked key (only show last 4 chars)
-        masked_key = f"sk_{'*' * (len(tenant.api_key) - 4)}{tenant.api_key[-4:]}"
-
-        return {
-            "key": masked_key,
-            "createdAt": tenant.created_at
-        }
+        return ApiKeyResponse(key=tenant.api_key, createdAt=tenant.created_at)
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"✗ Failed to get API key: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))

@@ -6,23 +6,24 @@ class Settings(BaseSettings):
     app_name: str = "Luxe v4.0 - AI Helpdesk"
     debug: bool = False
 
-    # Database (SQLite for local dev, PostgreSQL for production)
-    database_url: str = "sqlite:///./ai_customer_support.db"
+    # Database (MongoDB)
+    mongodb_url: str = "mongodb+srv://user:password@cluster.mongodb.net/?appName=Cluster0"
+    mongodb_db_name: str = "luxe_v4"
 
     # Clerk
     clerk_secret_key: str = "sk_test_placeholder"
     clerk_publishable_key: str = "pk_test_placeholder"
 
-    # Stripe (optional, added later)
+    # Stripe (optional)
     stripe_secret_key: str = ""
     stripe_publishable_key: str = ""
 
     # Server
     api_host: str = "0.0.0.0"
-    api_port: int = 8000
+    api_port: int = 8002
 
     # Frontend
-    frontend_url: str = "http://localhost:3000"
+    frontend_url: str = "http://localhost:3002"
 
     class Config:
         env_file = ".env"
