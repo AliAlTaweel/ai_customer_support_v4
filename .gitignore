@@ -63,3 +63,10 @@ coverage/
 .cache/
 .turbo/
 *.pem
+
+# Claude Code skills and rules (installed per-developer)
+.claude/skills/
+.claude/rules/context7.md
+
+# Graphify outputs (regenerated after code changes)
+graphify-out/
