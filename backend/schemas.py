@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, Dict, List
 from datetime import datetime
 
@@ -22,19 +22,20 @@ class TenantUpdate(BaseModel):
 class TenantResponse(BaseModel):
     id: str
     name: str
-    logo: Optional[str]
-    colors: Optional[Dict]
-    systemPrompt: str
+    logo: Optional[str] = None
+    colors: Optional[Dict] = None
+    systemPrompt: str = Field(alias='system_prompt')
     tone: str
-    supportEmail: str
-    apiKey: str
+    supportEmail: str = Field(alias='support_email')
+    apiKey: str = Field(alias='api_key')
     status: str
     plan: str
-    createdAt: datetime
-    updatedAt: datetime
+    createdAt: datetime = Field(alias='created_at')
+    updatedAt: datetime = Field(alias='updated_at')
 
     class Config:
         from_attributes = True
+        populate_by_name = True
 
 # Tenant User Schemas
 class TenantUserCreate(BaseModel):
