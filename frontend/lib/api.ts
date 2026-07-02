@@ -72,4 +72,16 @@ export const integrationApi = {
   sync: (tenantId: string, integrationId: string) => api.post(`/api/v1/integrations/${tenantId}/${integrationId}/sync`),
 }
 
+export const caseApi = {
+  create: (tenantId: string, data: any) => api.post(`/api/v1/cases/${tenantId}`, data),
+  list: (tenantId: string, status?: string) =>
+    api.get(`/api/v1/cases/${tenantId}`, { params: { status_filter: status } }),
+  get: (tenantId: string, caseId: string) => api.get(`/api/v1/cases/${tenantId}/${caseId}`),
+  update: (tenantId: string, caseId: string, data: any) => api.put(`/api/v1/cases/${tenantId}/${caseId}`, data),
+  delete: (tenantId: string, caseId: string) => api.delete(`/api/v1/cases/${tenantId}/${caseId}`),
+  addMessage: (tenantId: string, caseId: string, data: any) =>
+    api.post(`/api/v1/cases/${tenantId}/${caseId}/messages`, data),
+  getMessages: (tenantId: string, caseId: string) => api.get(`/api/v1/cases/${tenantId}/${caseId}/messages`),
+}
+
 export default api
