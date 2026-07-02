@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react'
 import { tenantApi, apiKeyApi } from '@/lib/api'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 
 interface Tenant {
   id: string
@@ -117,6 +120,21 @@ export default function SettingsPage() {
     }
   }
 
+  const deleteTenant = async (tenantId: string) => {
+    if (!tenantId) return
+
+    try {
+      await tenantApi.delete(tenantId)
+      toast.success('Tenant deleted successfully')
+      setSelectedTenant(null)
+      setShowNewTenantForm(false)
+      await fetchTenants()
+    } catch (error) {
+      console.error('Failed to delete tenant:', error)
+      toast.error('Failed to delete tenant')
+    }
+  }
+
   if (loading) {
     return <div className="text-center py-12">Loading...</div>
   }
@@ -131,169 +149,206 @@ export default function SettingsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Tenant List */}
         <div className="lg:col-span-1">
-          <div className="card p-4">
-            <h2 className="text-lg font-semibold mb-4">Tenants</h2>
-            <div className="space-y-2 mb-4">
-              {tenants.map((tenant) => (
-                <button
-                  key={tenant.id}
-                  onClick={() => selectTenant(tenant)}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
-                    selectedTenant?.id === tenant.id
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                  }`}
-                >
-                  <div className="font-medium">{tenant.name}</div>
-                  <div className="text-xs opacity-75">{tenant.supportEmail}</div>
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setShowNewTenantForm(!showNewTenantForm)}
-              className="w-full btn-primary text-sm"
-            >
-              {showNewTenantForm ? 'Cancel' : '+ New Tenant'}
-            </button>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Tenants</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                {tenants.map((tenant) => (
+                  <button
+                    key={tenant.id}
+                    onClick={() => selectTenant(tenant)}
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                      selectedTenant?.id === tenant.id
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                    }`}
+                  >
+                    <div className="font-medium">{tenant.name}</div>
+                    <div className="text-xs opacity-75">{tenant.supportEmail}</div>
+                  </button>
+                ))}
+              </div>
+              <Button
+                onClick={() => setShowNewTenantForm(!showNewTenantForm)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {showNewTenantForm ? 'Cancel' : '+ New Tenant'}
+              </Button>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Settings Form */}
         <div className="lg:col-span-3">
           {showNewTenantForm ? (
-            <div className="card p-8">
-              <h2 className="text-2xl font-bold mb-6">Create New Tenant</h2>
-              <form onSubmit={handleCreateTenant} className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Organization Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="input-field"
-                    required
-                  />
-                </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Create New Tenant</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleCreateTenant} className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Organization Name *
+                    </label>
+                    <Input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      required
+                      placeholder="Your company name"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Support Email *
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.supportEmail}
-                    onChange={(e) => setFormData({ ...formData, supportEmail: e.target.value })}
-                    className="input-field"
-                    required
-                  />
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Support Email *
+                    </label>
+                    <Input
+                      type="email"
+                      value={formData.supportEmail}
+                      onChange={(e) => setFormData({ ...formData, supportEmail: e.target.value })}
+                      required
+                      placeholder="support@example.com"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Brand Tone
-                  </label>
-                  <select
-                    value={formData.tone}
-                    onChange={(e) => setFormData({ ...formData, tone: e.target.value })}
-                    className="input-field"
-                  >
-                    <option value="professional">Professional</option>
-                    <option value="friendly">Friendly</option>
-                    <option value="casual">Casual</option>
-                  </select>
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Brand Tone
+                    </label>
+                    <select
+                      value={formData.tone}
+                      onChange={(e) => setFormData({ ...formData, tone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="professional">Professional</option>
+                      <option value="friendly">Friendly</option>
+                      <option value="casual">Casual</option>
+                    </select>
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    System Prompt
-                  </label>
-                  <textarea
-                    value={formData.systemPrompt}
-                    onChange={(e) => setFormData({ ...formData, systemPrompt: e.target.value })}
-                    className="input-field h-32 resize-none"
-                    placeholder="Custom instructions for the AI agent..."
-                  />
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      System Prompt
+                    </label>
+                    <textarea
+                      value={formData.systemPrompt}
+                      onChange={(e) => setFormData({ ...formData, systemPrompt: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md h-32 resize-none"
+                      placeholder="Custom instructions for the AI agent..."
+                    />
+                  </div>
 
-                <button type="submit" className="btn-primary">
-                  Create Tenant
-                </button>
-              </form>
-            </div>
+                  <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                    Create Tenant
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
           ) : selectedTenant ? (
-            <div className="card p-8">
-              <h2 className="text-2xl font-bold mb-6">Tenant Settings</h2>
-              <form onSubmit={handleUpdateTenant} className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Organization Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="input-field"
-                  />
-                </div>
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Tenant Settings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleUpdateTenant} className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Organization Name
+                      </label>
+                      <Input
+                        type="text"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      />
+                    </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Support Email
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.supportEmail}
-                    onChange={(e) => setFormData({ ...formData, supportEmail: e.target.value })}
-                    className="input-field"
-                  />
-                </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Support Email
+                      </label>
+                      <Input
+                        type="email"
+                        value={formData.supportEmail}
+                        onChange={(e) => setFormData({ ...formData, supportEmail: e.target.value })}
+                      />
+                    </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Brand Tone
-                  </label>
-                  <select
-                    value={formData.tone}
-                    onChange={(e) => setFormData({ ...formData, tone: e.target.value })}
-                    className="input-field"
-                  >
-                    <option value="professional">Professional</option>
-                    <option value="friendly">Friendly</option>
-                    <option value="casual">Casual</option>
-                  </select>
-                </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Brand Tone
+                      </label>
+                      <select
+                        value={formData.tone}
+                        onChange={(e) => setFormData({ ...formData, tone: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      >
+                        <option value="professional">Professional</option>
+                        <option value="friendly">Friendly</option>
+                        <option value="casual">Casual</option>
+                      </select>
+                    </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    System Prompt
-                  </label>
-                  <textarea
-                    value={formData.systemPrompt}
-                    onChange={(e) => setFormData({ ...formData, systemPrompt: e.target.value })}
-                    className="input-field h-32 resize-none"
-                  />
-                </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        System Prompt
+                      </label>
+                      <textarea
+                        value={formData.systemPrompt}
+                        onChange={(e) => setFormData({ ...formData, systemPrompt: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md h-32 resize-none"
+                      />
+                    </div>
 
-                <button type="submit" className="btn-primary">
-                  Save Changes
-                </button>
-              </form>
+                    <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                      Save Changes
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
 
               {/* API Key Section */}
-              <div className="mt-12 pt-12 border-t">
-                <h3 className="text-xl font-bold mb-4">API Key</h3>
-                <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                  <div className="font-mono text-sm break-all">{apiKeyMasked}</div>
-                </div>
-                <button
-                  onClick={generateNewApiKey}
-                  className="btn-secondary text-sm"
-                >
-                  Generate New Key
-                </button>
-              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>API Key</CardTitle>
+                  <CardDescription>Use this key to authenticate API requests</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="bg-gray-50 p-4 rounded-lg font-mono text-sm break-all">
+                    {apiKeyMasked}
+                  </div>
+                  <Button onClick={generateNewApiKey} className="bg-blue-600 hover:bg-blue-700 text-white">
+                    Generate New Key
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Danger Zone */}
+              <Card className="border-red-200 bg-red-50">
+                <CardHeader>
+                  <CardTitle className="text-red-600">Danger Zone</CardTitle>
+                  <CardDescription>Irreversible actions</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Deleting this tenant will permanently remove all data including cases, integrations, and configurations.
+                  </p>
+                  <Button
+                    onClick={() => {
+                      if (confirm(`Are you sure you want to delete "${selectedTenant?.name}"? This cannot be undone.`)) {
+                        deleteTenant(selectedTenant?.id || '')
+                      }
+                    }}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Delete Tenant
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
           ) : null}
         </div>
