@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from config import settings
 from db import init_db
-from routers import tenants, auth, api_keys, integrations
+from routers import tenants, auth, api_keys, integrations, cases
 from logger import logger
 import os
 
@@ -50,6 +50,7 @@ app.include_router(tenants.router)
 app.include_router(auth.router)
 app.include_router(api_keys.router)
 app.include_router(integrations.router)
+app.include_router(cases.router)
 
 @app.get("/")
 async def root():

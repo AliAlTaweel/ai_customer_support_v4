@@ -99,6 +99,66 @@ class ApiKeyResponse(BaseModel):
     key: str
     createdAt: datetime
 
+# Case Schemas (Phase 2)
+class CaseMessageCreate(BaseModel):
+    senderEmail: str
+    senderName: Optional[str] = None
+    content: str
+    messageType: str = "message"
+
+class CaseMessageResponse(BaseModel):
+    id: str
+    caseId: str
+    sender: str
+    senderEmail: Optional[str] = None
+    content: str
+    messageType: str
+    createdAt: datetime = Field(alias='created_at')
+
+    class Config:
+        from_attributes = True
+        populate_by_name = True
+
+class CaseCreate(BaseModel):
+    integrationId: str
+    customerEmail: str
+    customerName: Optional[str] = None
+    subject: str
+    description: str
+    priority: str = "medium"
+
+class CaseUpdate(BaseModel):
+    status: Optional[str] = None
+    priority: Optional[str] = None
+    assignedTo: Optional[str] = None
+    aiResponse: Optional[str] = None
+    humanResponse: Optional[str] = None
+    aiConfidence: Optional[str] = None
+
+class CaseResponse(BaseModel):
+    id: str
+    tenantId: str = Field(alias='tenant_id')
+    integrationId: str = Field(alias='integration_id')
+    customerEmail: str = Field(alias='customer_email')
+    customerName: Optional[str] = Field(alias='customer_name')
+    subject: str
+    description: str
+    status: str
+    priority: str
+    assignedTo: Optional[str] = Field(alias='assigned_to')
+    aiResponse: Optional[str] = Field(alias='ai_response')
+    humanResponse: Optional[str] = Field(alias='human_response')
+    aiConfidence: str = Field(alias='ai_confidence')
+    createdAt: datetime = Field(alias='created_at')
+    updatedAt: datetime = Field(alias='updated_at')
+
+    class Config:
+        from_attributes = True
+        populate_by_name = True
+
+class CaseDetailResponse(CaseResponse):
+    messages: List[CaseMessageResponse] = []
+
 class ApiKeyListResponse(BaseModel):
     keys: List[ApiKeyResponse]
 

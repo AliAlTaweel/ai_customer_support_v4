@@ -65,5 +65,48 @@ class Integration(Base):
 
     # Relations
     tenant = relationship("Tenant", back_populates="integrations")
+    cases = relationship("Case", back_populates="integration", cascade="all, delete-orphan")
 
     __table_args__ = (UniqueConstraint('tenant_id', 'type', name='uq_tenant_integration_type'),)
+
+
+class Case(Base):
+    __tablename__ = "cases"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id = Column(String, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    integration_id = Column(String, ForeignKey("integrations.id", ondelete="CASCADE"), nullable=False)
+    customer_email = Column(String, nullable=False)
+    customer_name = Column(String, nullable=True)
+    subject = Column(String, nullable=False)
+    description = Column(Text, nullable=False)
+    status = Column(String, default="open")
+    priority = Column(String, default="medium")
+    assigned_to = Column(String, ForeignKey("tenant_users.id"), nullable=True)
+    ai_response = Column(Text, nullable=True)
+    human_response = Column(Text, nullable=True)
+    ai_confidence = Column(String, default="medium")
+    external_id = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relations
+    tenant = relationship("Tenant", foreign_keys=[tenant_id])
+    integration = relationship("Integration", back_populates="cases")
+    assigned_agent = relationship("TenantUser")
+    messages = relationship("CaseMessage", back_populates="case", cascade="all, delete-orphan")
+
+
+class CaseMessage(Base):
+    __tablename__ = "case_messages"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    case_id = Column(String, ForeignKey("cases.id", ondelete="CASCADE"), nullable=False)
+    sender = Column(String, nullable=False)
+    sender_email = Column(String, nullable=True)
+    content = Column(Text, nullable=False)
+    message_type = Column(String, default="message")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relations
+    case = relationship("Case", back_populates="messages")
