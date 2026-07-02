@@ -3,8 +3,8 @@ import { ClerkProvider } from '@clerk/nextjs'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'AI Customer Support',
-  description: 'Wilmo-like AI helpdesk for e-commerce',
+  title: 'Luxe v4.0 - AI Customer Support',
+  description: 'AI-native helpdesk platform for e-commerce',
 }
 
 export default function RootLayout({
@@ -14,7 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider>
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
         <body className="bg-white">
           {children}
         </body>
