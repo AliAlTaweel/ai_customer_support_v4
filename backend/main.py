@@ -2,19 +2,25 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from config import settings
-from db import connect_db, disconnect_db
+from db import init_db
 from routers import tenants, auth, api_keys, integrations
+from logger import logger
+import os
+
+# Create logs directory
+os.makedirs("logs", exist_ok=True)
 
 # Lifespan context manager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    await connect_db()
-    print("✓ Database connected")
+    logger.info("🚀 Starting application...")
+    init_db()
+    logger.info("✓ Database initialized")
+    logger.info(f"📊 Database: {settings.database_url}")
     yield
     # Shutdown
-    await disconnect_db()
-    print("✓ Database disconnected")
+    logger.info("⛔ Server shutting down")
 
 # Create app
 app = FastAPI(
@@ -26,10 +32,17 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://localhost:3000", "http://localhost:3001"],
+    allow_origins=[
+        settings.frontend_url,
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "Accept"],
+    expose_headers=["*"],
+    max_age=600,
 )
 
 # Include routers
