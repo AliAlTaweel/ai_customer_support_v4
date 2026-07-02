@@ -1,5 +1,13 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
+from pydantic import Field
+from dotenv import load_dotenv
+from pathlib import Path
+import os
+
+# Load .env file explicitly
+env_path = Path(__file__).parent.parent / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
 
 class Settings(BaseSettings):
     # App
@@ -7,7 +15,7 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # Database (MongoDB)
-    mongodb_url: str = "mongodb+srv://user:password@cluster.mongodb.net/?appName=Cluster0"
+    mongodb_url: str = Field(default="mongodb+srv://user:password@cluster.mongodb.net/?appName=Cluster0")
     mongodb_db_name: str = "luxe_v4"
 
     # Clerk
