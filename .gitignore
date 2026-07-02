@@ -111,6 +111,3 @@ coverage/
 .cache
 .turbo
 *.pem
-
-# ==================== Support & Documentation ====================
-support/
