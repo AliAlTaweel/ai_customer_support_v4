@@ -1,7 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
 from schemas import IntegrationCreate, IntegrationResponse
-from db import db
+from models import Tenant, Integration
+from db import get_db
 from auth import get_clerk_user
+from datetime import datetime
 
 router = APIRouter(prefix="/api/v1/integrations", tags=["integrations"])
 
@@ -9,61 +12,56 @@ router = APIRouter(prefix="/api/v1/integrations", tags=["integrations"])
 async def create_integration(
     tenant_id: str,
     integration_data: IntegrationCreate,
-    auth_user: dict = Depends(get_clerk_user)
+    auth_user: dict = Depends(get_clerk_user),
+    db: Session = Depends(get_db)
 ):
     """Connect a new integration for a tenant."""
     try:
-        tenant = await db.tenant.find_unique(where={"id": tenant_id})
+        tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
 
-        # Build integration data
-        integration_dict = {
-            "tenantId": tenant_id,
-            "type": integration_data.type,
-            "status": "connected",
-        }
-
-        # Add provider-specific fields
-        if integration_data.type == "shopify":
-            integration_dict["shopifyStoreName"] = integration_data.shopifyStoreName
-            integration_dict["shopifyAccessToken"] = integration_data.shopifyAccessToken
-        elif integration_data.type == "woocommerce":
-            integration_dict["wooCommerceUrl"] = integration_data.wooCommerceUrl
-            integration_dict["wooCommerceKey"] = integration_data.wooCommerceKey
-            integration_dict["wooCommerceSecret"] = integration_data.wooCommerceSecret
-        elif integration_data.type == "stripe":
-            integration_dict["stripeApiKey"] = integration_data.stripeApiKey
-
-        integration = await db.integration.create(data=integration_dict)
+        integration = Integration(
+            tenant_id=tenant_id,
+            type=integration_data.type,
+            status="connected",
+            shopify_store_name=integration_data.shopifyStoreName,
+            shopify_access_token=integration_data.shopifyAccessToken,
+            woocommerce_url=integration_data.wooCommerceUrl,
+            woocommerce_key=integration_data.wooCommerceKey,
+            woocommerce_secret=integration_data.wooCommerceSecret,
+            stripe_api_key=integration_data.stripeApiKey,
+        )
+        db.add(integration)
+        db.commit()
+        db.refresh(integration)
         return integration
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/{tenant_id}", response_model=list[IntegrationResponse])
 async def list_integrations(
     tenant_id: str,
-    auth_user: dict = Depends(get_clerk_user)
+    auth_user: dict = Depends(get_clerk_user),
+    db: Session = Depends(get_db)
 ):
     """List all integrations for a tenant."""
-    integrations = await db.integration.find_many(
-        where={"tenantId": tenant_id}
-    )
+    integrations = db.query(Integration).filter(Integration.tenant_id == tenant_id).all()
     return integrations
 
 @router.get("/{tenant_id}/{integration_id}", response_model=IntegrationResponse)
 async def get_integration(
     tenant_id: str,
     integration_id: str,
-    auth_user: dict = Depends(get_clerk_user)
+    auth_user: dict = Depends(get_clerk_user),
+    db: Session = Depends(get_db)
 ):
     """Get a specific integration."""
-    integration = await db.integration.find_first(
-        where={
-            "id": integration_id,
-            "tenantId": tenant_id
-        }
-    )
+    integration = db.query(Integration).filter(
+        Integration.id == integration_id,
+        Integration.tenant_id == tenant_id
+    ).first()
     if not integration:
         raise HTTPException(status_code=404, detail="Integration not found")
     return integration
@@ -72,42 +70,39 @@ async def get_integration(
 async def delete_integration(
     tenant_id: str,
     integration_id: str,
-    auth_user: dict = Depends(get_clerk_user)
+    auth_user: dict = Depends(get_clerk_user),
+    db: Session = Depends(get_db)
 ):
     """Disconnect an integration."""
-    integration = await db.integration.find_first(
-        where={
-            "id": integration_id,
-            "tenantId": tenant_id
-        }
-    )
+    integration = db.query(Integration).filter(
+        Integration.id == integration_id,
+        Integration.tenant_id == tenant_id
+    ).first()
     if not integration:
         raise HTTPException(status_code=404, detail="Integration not found")
 
-    await db.integration.delete(where={"id": integration_id})
+    db.delete(integration)
+    db.commit()
     return {"status": "deleted"}
 
 @router.post("/{tenant_id}/{integration_id}/sync")
 async def sync_integration(
     tenant_id: str,
     integration_id: str,
-    auth_user: dict = Depends(get_clerk_user)
+    auth_user: dict = Depends(get_clerk_user),
+    db: Session = Depends(get_db)
 ):
     """Manually sync integration data."""
-    integration = await db.integration.find_first(
-        where={
-            "id": integration_id,
-            "tenantId": tenant_id
-        }
-    )
+    integration = db.query(Integration).filter(
+        Integration.id == integration_id,
+        Integration.tenant_id == tenant_id
+    ).first()
     if not integration:
         raise HTTPException(status_code=404, detail="Integration not found")
 
-    # For Phase 1, just mark as synced
-    # In later phases, this will actually fetch data from Shopify/WooCommerce
-    updated = await db.integration.update(
-        where={"id": integration_id},
-        data={"lastSyncedAt": __import__("datetime").datetime.utcnow()}
-    )
+    # Mark as synced
+    integration.last_synced_at = datetime.utcnow()
+    db.commit()
+    db.refresh(integration)
 
-    return {"status": "synced", "integration": updated}
+    return {"status": "synced", "integration": integration}

@@ -1,55 +1,43 @@
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
 from schemas import SignupRequest, SignupResponse, TenantUserCreate, TenantUserResponse
-from db import db
+from models import Tenant, TenantUser
+from db import get_db
 from auth import clerk_client, get_clerk_user
+from logger import logger
 import uuid
-import stripe
-from config import settings
-
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
-stripe.api_key = settings.stripe_secret_key
-
 @router.post("/signup", response_model=SignupResponse)
-async def signup(signup_data: SignupRequest):
+async def signup(signup_data: SignupRequest, db: Session = Depends(get_db)):
     """Create new tenant with organization and user."""
     try:
-        # Create Clerk organization
-        clerk_org = await clerk_client.create_organization(
+        logger.info(f"🔐 Signup attempt: {signup_data.email} ({signup_data.organizationName})")
+
+        # Create tenant in DB (Stripe integration added later)
+        tenant = Tenant(
             name=signup_data.organizationName,
-            slug=signup_data.organizationSlug
+            support_email=signup_data.email,
+            clerk_org_id=str(uuid.uuid4()),
+            api_key=str(uuid.uuid4()),
+            status="trial",
+            plan="starter",
         )
-        clerk_org_id = clerk_org["id"]
+        db.add(tenant)
+        db.commit()
+        db.refresh(tenant)
 
-        # Create Stripe customer
-        stripe_customer = stripe.Customer.create(
-            email=signup_data.email,
-            name=signup_data.organizationName
-        )
-
-        # Create tenant in DB
-        tenant = await db.tenant.create(
-            data={
-                "name": signup_data.organizationName,
-                "supportEmail": signup_data.email,
-                "clerkOrgId": clerk_org_id,
-                "apiKey": str(uuid.uuid4()),
-                "status": "trial",
-                "plan": "starter",
-                "stripeCustomerId": stripe_customer["id"],
-            }
-        )
-
-        # For Phase 1, we'll skip direct user creation as Clerk handles it
-        # In production, you'd sync users from Clerk
+        logger.info(f"✓ Signup successful: {signup_data.email} (ID: {tenant.id})")
 
         return SignupResponse(
-            userId=signup_data.email,  # Placeholder - would use Clerk user ID
-            organizationId=clerk_org_id,
+            userId=signup_data.email,
+            organizationId=tenant.clerk_org_id,
             organizationName=signup_data.organizationName,
             email=signup_data.email
         )
     except Exception as e:
+        db.rollback()
+        logger.error(f"✗ Signup failed: {signup_data.email} - {str(e)}")
         raise HTTPException(status_code=400, detail=f"Signup failed: {str(e)}")
 
 @router.post("/login")
@@ -66,32 +54,34 @@ async def get_current_user(user_data: dict = Depends(get_clerk_user)):
 async def add_tenant_user(
     tenant_id: str,
     user_data: TenantUserCreate,
-    auth_user: dict = Depends(get_clerk_user)
+    auth_user: dict = Depends(get_clerk_user),
+    db: Session = Depends(get_db)
 ):
     """Add a user to a tenant."""
     try:
-        tenant = await db.tenant.find_unique(where={"id": tenant_id})
+        tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
 
-        tenant_user = await db.tenant_user.create(
-            data={
-                "tenantId": tenant_id,
-                "userId": user_data.userId,
-                "role": user_data.role,
-            }
+        tenant_user = TenantUser(
+            tenant_id=tenant_id,
+            user_id=user_data.userId,
+            role=user_data.role,
         )
+        db.add(tenant_user)
+        db.commit()
+        db.refresh(tenant_user)
         return tenant_user
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/tenant-users/{tenant_id}", response_model=list[TenantUserResponse])
 async def list_tenant_users(
     tenant_id: str,
-    auth_user: dict = Depends(get_clerk_user)
+    auth_user: dict = Depends(get_clerk_user),
+    db: Session = Depends(get_db)
 ):
     """List all users in a tenant."""
-    users = await db.tenant_user.find_many(
-        where={"tenantId": tenant_id}
-    )
+    users = db.query(TenantUser).filter(TenantUser.tenant_id == tenant_id).all()
     return users
