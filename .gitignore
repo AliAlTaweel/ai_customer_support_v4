@@ -23,6 +23,7 @@ __pycache__/
 *.so
 .Python
 venv/
+venv_v4/
 env/
 .pytest_cache/
 .mypy_cache/
@@ -40,6 +41,14 @@ out/
 *.db
 *.sqlite
 *.sqlite3
+prisma/
+
+# Lock files (these are auto-generated, use npm ci instead)
+package-lock.json
+yarn.lock
+
+# Generated files
+next-env.d.ts
 
 # Logs
 logs/
